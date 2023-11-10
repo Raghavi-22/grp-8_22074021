@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% load textslice %}
+{%block content%}
+<style>
+    .bg-cover{
+        background: linear-gradient(rgba(5,5,5,0.77),rgba(5,5,5,0.77)), url('{{manga.poster_image}}') no-repeat center center fixed; 
+        -webkit-background-size: cover;
+        -moz-background-size: cover;
+        -o-background-size: cover;
+        background-position: left;
+        background-size: cover;
+    }
+    .poster{
+        height: 76vh;
+        min-height:450px;
+        min-width:305px;
+        width: 25vw;
+        margin-top: 1vh;
+        border: 1px solid #008864;
+    }
+    .genre{
+        text-decoration:none;
+        color:#acaaaa;
+    }
+    .genre:hover{
+        color: white;
+    }
+    #post{
+        background-color:transparent;
+        border-color:white;
+        border-width: 1px;
+    }
+    #post:hover{
+        background-color:white;
+        color:black;
+    }
+    label{
+        display:none;
+    }
+    textarea.form-control {
+        height: 8vh;
+        border-radius: 25px;
+        background-color: rgba(77, 87, 84, 0.3);
+        color: white;
+    }
+    textarea.form-control:focus{
+        background-color: rgba(77, 87, 84, 0.3);
+        color: white;
+    }
+    .read-more{
+        margin: 1px;
+        background-color:transparent;
+        color:white;
+        border-color:white;
+        border-width:1px;
+        border-radius:3px;
+    }
+    .read-more:hover{
+        background-color:white;
+        color:black;
+    }
+    .comment-left{
+        text-align:left;    
+    }
+    .comment-right{
+        text-align:right;
+    }
+</style>
+<div>
+    <div class="column">
+        <div class="row">
+            <div class="col-md-12 col-lg-4">
+                {% if manga.poster_image %}
+                <img src="{{ manga.poster_image }}" alt="Poster Image" class="poster">
+                {% endif %} 
+            </div>
+            <div class="col-md-12 col-lg-8" style="font-size:15px;"> 
+                <h1 style="color:white;">{{ manga.title }}</h1>
+                <div class="row" style="padding:10px;">
+                    <!--WatchLater-->
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="post_type" value="readlater">
+                        <input type="hidden" name="manga_id" value="{{manga.id}}">
+                        <button type="submit" style="margin: 5px;background-color: transparent;">
+                            {%if not unread%}<i class="fa-regular fa-bookmark" style="color: #ffffff;"></i>
+                            {%else %}<i class="fa-solid fa-bookmark" style="color: #ffffff;"></i>
+                            {%endif%}
+                        </button>
+                    </form>
+                    <!--Reactions-->
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="post_type" value="reaction">
+                        <input type="hidden" name="reaction_type" value="like">  <!-- Hidden input for liking -->
+                        <input type="hidden" name="manga_id" value="{{manga.id}}">
+                        <button type="submit" style="margin: 5px;background-color: transparent;color:white;">
+                            {%if not liked%}<i class="fa-regular fa-heart" style="color: #ffffff;"></i>
+                            {%else %}<i class="fa-solid fa-heart" style="color: #ffffff;"></i>
+                            {%endif%}
+                            {{likes}}
+                        </button>
+                    </form>    
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="post_type" value="reaction">
+                        <input type="hidden" name="reaction_type" value="dislike">  <!-- Hidden input for disliking -->
+                        <input type="hidden" name="manga_id" value="{{manga.id}}">
+                        <button type="submit" style="margin: 5px;background-color: transparent;color:white;">
+                            {%if not disliked%}<i class="fa-regular fa-thumbs-down" style="color: #ffffff;"></i>
+                            {%else %}<i class="fa-solid fa-thumbs-down" style="color: #ffffff;"></i>
+                            {%endif%}
+                            {{dislikes}}
+                        </button>
+                    </form>
+                </div>
+                <p>{{ manga.status }} | Chap {{ manga.chapter_count }} | Vol {{ manga.volumes_count }} {%if manga.age_rating_guide%}|  {{ manga.age_rating_guide }}{%endif%}</p>
+                <p>
+                    <li style="display: flex;flex-direction:row;">Genres:
+                        <ul style="display: flex;flex-direction:row;padding-left:5px;">
+                            {% for genre in genres %}
+                                <a href="{% url 'get_genre_manga' genre %}" class="genre">
+                                    <li style="margin-right:5px;list-style: none;">{{  genre }},</li>
+                                </a>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                </p>
+                <div id="synopsis" style="height: 50px; overflow: hidden;">
+                    <p>{{ manga.synopsis | remove_rewrite}}</p>
+                </div>
+                <button id="read-more" onclick="showSynopsis()" class="read-more">Read More</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="column">
+        <p>
+            Name: {{ manga.canonical_title }}<br>
+            Popularity: {{ manga.popularity_rank }}<br>
+            Rating: {{ manga.rating_rank }}</br>
+            {% if manga.created_at %}
+            Started At: {{ manga.created_at|date:'Y-m-d' }}</br>
+            {% endif %}
+            {% if manga.end_date %}
+             Ended At: {{ manga.end_date|date:'Y-m-d' }}<br>
+            {% endif %}
+        </p>
+    </div>
+
+    <div class="column">
+        <!-- Comment Form -->
+        <h2>Post a Comment:</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="post_type" value="comment">
+            {{ comment_form.as_p }}
+            <button type="submit" class="btn btn-primary" id="post">Post</button>
+        </form>
+
+        <!-- Comments -->
+        <h2>Comments:</h2>
+        {% for comment in comments %}
+            <div class="comment">
+                <p><strong>{{ comment.user.username }}</strong> <span style="font-size:10px">{{ comment.created_at }}</span><br>
+                {{ comment.content }}</p>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function showSynopsis() {
+        var synopsis = document.getElementById("synopsis");
+        var button = document.getElementById("read-more");
+    
+        if (synopsis.style.height === "50px") {
+            synopsis.style.height = "auto";
+            button.innerHTML = "Read Less";
+        } else {
+            synopsis.style.height = "50px";
+            button.innerHTML = "Read More";
+        }
+    }
+</script>
+
+{%endblock%} 
